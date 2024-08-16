@@ -61,3 +61,44 @@ def test_syslogd(shell):
 
     _, _, returncode = shell.run('ps | grep "[s]yslogd"')
     assert returncode != 0  # grep returns 0 if matching lines are found
+
+
+def test_dbus(shell):
+    """
+    Test dbus by running `busctl list`.
+    """
+
+    out = shell.run_check("busctl --json=short list")
+    found_bus_names = set()
+    for peer in json.loads("".join(out)):
+        if peer["name"].startswith(":"):
+            continue
+        found_bus_names.add(peer["name"])
+
+    expected_bus_names = {
+        "de.pengutronix.rauc",
+        "de.pengutronix.tacd",
+        "org.freedesktop.DBus",
+        "org.freedesktop.NetworkManager",
+        "org.freedesktop.nm_dispatcher",
+        "org.freedesktop.systemd1",
+        "org.freedesktop.Avahi",
+    }
+
+    optional_bus_names = {
+        "org.freedesktop.machine1",
+        "org.freedesktop.timesync1",
+        "org.freedesktop.locale1",
+        "org.freedesktop.timedate1",
+        "org.freedesktop.hostname1",
+        "org.freedesktop.login1",
+        "org.freedesktop.resolve1",
+        "org.freedesktop.network1",
+        "fi.w1.wpa_supplicant1",
+        "org.bluez",
+        "org.freedesktop.PolicyKit1",
+        "org.freedesktop.UDisks2",
+        "org.freedesktop.nm_priv_helper",
+    }
+
+    assert found_bus_names - optional_bus_names == expected_bus_names
