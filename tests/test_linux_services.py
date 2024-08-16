@@ -35,3 +35,29 @@ def test_journal_warnings(shell):
             remaining.append(entry["MESSAGE"])
 
     assert remaining == []
+
+
+def test_systemd_journald(shell):
+    """
+    Test if systemd-journald is installed and running.
+    """
+
+    shell.run_check("pidof systemd-journald")
+
+
+def test_klogd(shell):
+    """klogd should not be installed"""
+    _, _, returncode = shell.run("[ -e /sbin/klogd ]")
+    assert returncode != 0
+
+    _, _, returncode = shell.run('ps | grep "[k]logd"')
+    assert returncode != 0  # grep returns 0 if matching lines are found
+
+
+def test_syslogd(shell):
+    """syslog should not be installed"""
+    _, _, returncode = shell.run("[ -e /sbin/syslogd ]")
+    assert returncode != 0
+
+    _, _, returncode = shell.run('ps | grep "[s]yslogd"')
+    assert returncode != 0  # grep returns 0 if matching lines are found
