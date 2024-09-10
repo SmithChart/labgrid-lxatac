@@ -10,6 +10,17 @@ def run_stressor(shell, args):
     return data
 
 
+@pytest.fixture()
+def services_stopped(shell):
+    shell.run_check("systemctl stop tacd")
+    shell.run_check("systemctl stop lxa-iobus")
+    shell.run_check("systemctl stop labgrid-exporter")
+    yield
+    shell.run_check("systemctl start tacd")
+    shell.run_check("systemctl start lxa-iobus")
+    shell.run_check("systemctl start labgrid-exporter")
+
+
 # run multiple similar tests
 @pytest.mark.parametrize(
     "stressor",
@@ -25,7 +36,7 @@ def run_stressor(shell, args):
         "atomic",
     ),
 )
-def test_stress(shell, stressor, record_property):
+def test_stress(shell, stressor, record_property, services_stopped):
     args = "--shm-bytes 1M" if stressor == "shm" else ""
 
     data = run_stressor(shell, f"--{stressor} 0 {args}")
