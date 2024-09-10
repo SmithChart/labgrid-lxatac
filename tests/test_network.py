@@ -131,28 +131,37 @@ def test_network_interfaces(shell):
 @pytest.mark.lg_feature("ptx-flavor")
 def test_network_nfs_io(shell):
     """Test nfs share io"""
-    ptx_works = shell.target.env.config.get_target_option(shell.target.name, "ptx-works-available")
+    ptx_works = set(shell.target.env.config.get_target_option(shell.target.name, "ptx-works-available"))
     assert len(ptx_works) > 0
 
     mount = shell.run_check("mount")
     mount = "\n".join(mount)
 
+    readable = set()
+    writeable = set()
+    missing = set()
     # Iterate over all available shares and check whether io operation is possible
     for ptx_work in ptx_works:
-        assert ptx_work in mount
+        # Check an automount unit has been created
+        if ptx_work not in mount:
+            missing.add(ptx_work)
 
-        dir_contents = shell.run_check(f"ls -1 {ptx_work}")
-        # make sure the directories contain something
-        assert len(dir_contents) > 0
-
-        shell.run_check(f"cd {ptx_work}")
+        # Make sure the directories contain something
+        dir_contents, _, rc = shell.run(f"ls -1 {ptx_work}", timeout=60)
+        # Timeout of the automount-units are a generous 30s.
+        # Let's use a much longer timeout for our commands to catch all problems on the DUT.
+        if len(dir_contents) > 0 and rc == 0:
+            readable.add(ptx_work)
 
         # Create a file on the share
-        file, _, returncode = shell.run("mktemp -p .")
-        assert returncode == 0
-        assert len(file) > 0
+        file, _, rc = shell.run(f"mktemp -p {ptx_work}", timeout=60)
+        if rc == 0:
+            writeable.add(ptx_work)
+            shell.run_check(f"rm {file[0]}", timeout=60)
 
-        shell.run_check(f"rm {file[0]}")
+    assert missing == set(), "These ptx-works do not have corresponding automount-units"
+    assert ptx_works == readable, "Mounts are not readable"
+    assert writeable == set(), "Mounts are writeable but should not be"
 
 
 def test_network_http_io(strategy, shell):
