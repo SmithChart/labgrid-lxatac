@@ -54,8 +54,14 @@ while True:
 
     console.expect(["rst_por"])
     logger.info("Saw power on reset. Awaiting the rest of the boot.")
+
+    logger.info("Waiting for Barebox to boot")
     target.activate(barebox)
+    logger.info("Setting linux loglevel in barebox")
+    barebox.run_check("global linux.bootargs.loglevel=loglevel=6")
+    logger.info("Asking Barebox to boot linux")
     barebox.boot("")
+    logger.info("Awaiting boot")
     barebox.await_boot()
     
     res = console.expect(["rst_iwdg2", "lxatac-00034 login:", ], timeout=120)
