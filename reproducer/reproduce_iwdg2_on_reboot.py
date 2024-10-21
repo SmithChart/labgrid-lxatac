@@ -25,7 +25,8 @@ console = strategy.console
 power = strategy.power
 
 strategy.status = 1
-logger.info(f"Initial Boot with bootstrapping")
+strategy.mmc_bootstrap = True
+logger.info(f"Initial Boot without bootstrapping")
 strategy.transition("barebox")
 logger.info("Reached barebox. Setting up bootchooser")
 strategy.barebox.run_check(f"state.bootstate.system0.priority=20")
@@ -53,6 +54,9 @@ while True:
 
     console.expect(["rst_por"])
     logger.info("Saw power on reset. Awaiting the rest of the boot.")
+    target.activate(barebox)
+    barebox.boot("")
+    barebox.await_boot()
     
     res = console.expect(["rst_iwdg2", "lxatac-00034 login:", ], timeout=120)
     if res == 0:
