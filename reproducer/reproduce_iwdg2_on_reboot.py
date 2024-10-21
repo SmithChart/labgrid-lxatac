@@ -25,7 +25,7 @@ console = strategy.console
 power = strategy.power
 
 strategy.status = 1
-strategy.mmc_bootstrap = True
+strategy.mmc_bootstrapped = True
 logger.info(f"Initial Boot without bootstrapping")
 strategy.transition("barebox")
 logger.info("Reached barebox. Setting up bootchooser")
