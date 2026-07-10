@@ -1,4 +1,5 @@
 import csv
+import datetime
 import json
 import re
 from dataclasses import dataclass
@@ -16,6 +17,23 @@ def test_chrony(shell):
     for line in csv_reader:
         # make sure stratum > 0 is used
         assert int(line[2]) > 0
+
+
+def test_chrony_clock(shell):
+    """
+    Test that the system clock is set somewhere close to the test-server time.
+    The LXA TAC does not have a realtime clock - more specifically there is an RTC in the CPU, but it is not powered.
+    So after each reboot the system will start with an arbitrary clock somewhere in the past.
+    This test ensures that chrony has set a useful system time.
+    """
+
+    [stdout] = shell.run_check("date -u +'%Y-%m-%d %H:%M:%S.%N'")
+
+    # `date` on the DUT supports %N (nanoseconds), `datetime` can only parse %f (microseconds).
+    # `date` adds zero-padding to all fields, so we can simply drop the last three digits of %N.
+    date = datetime.datetime.strptime(stdout[:-3], "%Y-%m-%d %H:%M:%S.%f")
+
+    assert (datetime.datetime.now() - date).days < 1
 
 
 def test_switch_configuration(shell, check):
