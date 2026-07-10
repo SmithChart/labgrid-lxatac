@@ -71,6 +71,15 @@ def test_switch_configuration(shell, check):
     with check:
         assert global_v6.endswith(v6_tail)
 
+    # Check if we have at least one dynamic IPv4 address on tac-bridge
+    with check:
+        v4_addrs = [
+            ai["local"]
+            for ai in ip_addr_json["addr_info"]
+            if ai["family"] == "inet" and "dynamic" in ai and ai["dynamic"]
+        ]
+        assert len(v4_addrs), "No IPv4 addr configured via DHCP"
+
 
 def test_hostname(shell, check):
     """Test whether the serial number is contained in the hostname"""
