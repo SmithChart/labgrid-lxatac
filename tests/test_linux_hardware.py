@@ -82,9 +82,9 @@ def test_sensors(shell, record_property):
     stdout = shell.run_check("sensors -j")
     data = json.loads("".join(stdout))
 
-    assert "cpu_thermal-virtual-0" in data
-    record_property("cpu_thermal-virtual-0", data["cpu_thermal-virtual-0"]["temp1"]["temp1_input"])
-    assert 10 <= data["cpu_thermal-virtual-0"]["temp1"]["temp1_input"] <= 70
+    assert "cpu_thermal_0-virtual-0" in data
+    record_property("cpu_thermal_0-virtual-0", data["cpu_thermal_0-virtual-0"]["temp1"]["temp1_input"])
+    assert 10 <= data["cpu_thermal_0-virtual-0"]["temp1"]["temp1_input"] <= 70
 
 
 def test_linux_watchdog(strategy: LXATACStrategy, shell: labgrid.driver.ShellDriver):
