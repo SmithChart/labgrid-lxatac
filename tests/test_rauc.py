@@ -95,7 +95,7 @@ def rauc_cert_enabled(strategy: LXATACStrategy, env: labgrid.Environment):
     strategy.shell.run_check(f"rauc-enable-cert {cert}")
     yield
     strategy.transition("shell")
-    strategy.shell.run_check(f"rauc-disable-cert {cert}")
+    strategy.shell.run(f"rauc-disable-cert {cert}")
 
 
 def test_rauc_version(shell):
