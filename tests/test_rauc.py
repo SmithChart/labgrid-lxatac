@@ -21,20 +21,67 @@ is already a dependency of `set_bootstate_in_bootloader`.
 #  and write a test for that.
 
 
-def test_rauc_version(shell):
+@pytest.fixture
+def default_bootstate(strategy: LXATACStrategy):
     """
-    Test basic availability working of rauc binary by obtaining version
-    information
+    Set default state values as setup/teardown
+
+    Note: This fixture changes the state of the DUT using the strategy.
+    When using this fixture do not rely on fixtures like "shell" to define the DUT's state.
+    Always ensure the state manually by calling strategy.transition() is needed.
     """
-    stdout = shell.run_check("rauc --version")
-    assert "rauc" in "\n".join(stdout)
+    strategy.transition("barebox")
+    strategy.barebox.run_check("bootchooser -a default -p default")
+
+    yield
+
+    strategy.transition("barebox")
+    strategy.barebox.run_check("bootchooser -a default -p default")
 
 
-def test_rauc_status(shell):
+@pytest.fixture
+def booted_slot(strategy: LXATACStrategy):
     """
-    Test basic slot status readout.
+    Returns booted slot
+
+    Note: Calling the Callable returned by this fixture will transition the DUT in the "shell" state.
     """
-    shell.run_check("rauc status", timeout=60)
+
+    def _booted_slot():
+        strategy.transition("shell")
+        [stdout] = strategy.shell.run_check("rauc status --output-format=json", timeout=60)
+        rauc_status = json.loads(stdout)
+
+        assert "booted" in rauc_status, 'No "booted" key in rauc status JSON found'
+
+        return rauc_status["booted"]
+
+    yield _booted_slot
+
+
+@pytest.fixture
+def set_bootstate_in_bootloader(strategy: LXATACStrategy, default_bootstate):
+    """
+    Sets the given bootchooser parameters
+
+    Note: This fixture changes the state of the DUT using the strategy.
+    When using this fixture do not rely on fixtures like "shell" to define the DUT's state.
+    Always ensure the state manually by calling strategy.transition() is needed.
+    """
+
+    def _set_bootstate(system0_prio, system0_attempts, system1_prio, system1_attempts):
+        strategy.transition("barebox")
+        barebox = strategy.barebox
+
+        barebox.run_check(f"state.bootstate.system0.priority={system0_prio}")
+        barebox.run_check(f"state.bootstate.system0.remaining_attempts={system0_attempts}")
+
+        barebox.run_check(f"state.bootstate.system1.priority={system1_prio}")
+        barebox.run_check(f"state.bootstate.system1.remaining_attempts={system1_attempts}")
+
+        barebox.run_check("state -s")
+
+    yield _set_bootstate
 
 
 @pytest.fixture(scope="function")
@@ -49,6 +96,22 @@ def rauc_cert_enabled(strategy: LXATACStrategy, env: labgrid.Environment):
     yield
     strategy.transition("shell")
     strategy.shell.run_check(f"rauc-disable-cert {cert}")
+
+
+def test_rauc_version(shell):
+    """
+    Test basic availability working of rauc binary by obtaining version
+    information
+    """
+    stdout = shell.run_check("rauc --version")
+    assert "rauc" in "\n".join(stdout)
+
+
+def test_rauc_status(shell):
+    """
+    Test basic slot status readout.
+    """
+    shell.run_check("rauc status", timeout=60)
 
 
 def test_rauc_info_json(shell, rauc_bundle, check, rauc_cert_enabled):
