@@ -3,6 +3,8 @@ import json
 import labgrid
 import pytest
 
+from lxatacstrategy import LXATACStrategy
+
 """
 Basic rauc tests
 
@@ -36,15 +38,17 @@ def test_rauc_status(shell):
 
 
 @pytest.fixture(scope="function")
-def rauc_cert_enabled(shell, env: labgrid.Environment):
+def rauc_cert_enabled(strategy: LXATACStrategy, env: labgrid.Environment):
     # Bundles during testing are not signed with release keys.
     # But the development key is not enabled by default.
     # So we need to enable it first.
 
     cert = "pengutronix.cert.pem" if "ptx-flavor" in env.get_target_features() else "devel.cert.pem"
-    shell.run_check(f"rauc-enable-cert {cert}")
+    strategy.transition("shell")
+    strategy.shell.run_check(f"rauc-enable-cert {cert}")
     yield
-    shell.run_check(f"rauc-disable-cert {cert}")
+    strategy.transition("shell")
+    strategy.shell.run_check(f"rauc-disable-cert {cert}")
 
 
 def test_rauc_info_json(shell, rauc_bundle, check, rauc_cert_enabled):
