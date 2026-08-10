@@ -3,6 +3,8 @@ import json
 import labgrid
 import pytest
 
+from lxatacstrategy import LXATACStrategy
+
 """
 Basic rauc tests
 
@@ -19,6 +21,83 @@ is already a dependency of `set_bootstate_in_bootloader`.
 #  and write a test for that.
 
 
+@pytest.fixture
+def default_bootstate(strategy: LXATACStrategy):
+    """
+    Set default state values as setup/teardown
+
+    Note: This fixture changes the state of the DUT using the strategy.
+    When using this fixture do not rely on fixtures like "shell" to define the DUT's state.
+    Always ensure the state manually by calling strategy.transition() is needed.
+    """
+    strategy.transition("barebox")
+    strategy.barebox.run_check("bootchooser -a default -p default")
+
+    yield
+
+    strategy.transition("barebox")
+    strategy.barebox.run_check("bootchooser -a default -p default")
+
+
+@pytest.fixture
+def booted_slot(strategy: LXATACStrategy):
+    """
+    Returns booted slot
+
+    Note: Calling the Callable returned by this fixture will transition the DUT in the "shell" state.
+    """
+
+    def _booted_slot():
+        strategy.transition("shell")
+        [stdout] = strategy.shell.run_check("rauc status --output-format=json", timeout=60)
+        rauc_status = json.loads(stdout)
+
+        assert "booted" in rauc_status, 'No "booted" key in rauc status JSON found'
+
+        return rauc_status["booted"]
+
+    yield _booted_slot
+
+
+@pytest.fixture
+def set_bootstate_in_bootloader(strategy: LXATACStrategy, default_bootstate):
+    """
+    Sets the given bootchooser parameters
+
+    Note: This fixture changes the state of the DUT using the strategy.
+    When using this fixture do not rely on fixtures like "shell" to define the DUT's state.
+    Always ensure the state manually by calling strategy.transition() is needed.
+    """
+
+    def _set_bootstate(system0_prio, system0_attempts, system1_prio, system1_attempts):
+        strategy.transition("barebox")
+        barebox = strategy.barebox
+
+        barebox.run_check(f"state.bootstate.system0.priority={system0_prio}")
+        barebox.run_check(f"state.bootstate.system0.remaining_attempts={system0_attempts}")
+
+        barebox.run_check(f"state.bootstate.system1.priority={system1_prio}")
+        barebox.run_check(f"state.bootstate.system1.remaining_attempts={system1_attempts}")
+
+        barebox.run_check("state -s")
+
+    yield _set_bootstate
+
+
+@pytest.fixture(scope="function")
+def rauc_cert_enabled(strategy: LXATACStrategy, env: labgrid.Environment):
+    # Bundles during testing are not signed with release keys.
+    # But the development key is not enabled by default.
+    # So we need to enable it first.
+
+    cert = "pengutronix.cert.pem" if "ptx-flavor" in env.get_target_features() else "devel.cert.pem"
+    strategy.transition("shell")
+    strategy.shell.run_check(f"rauc-enable-cert {cert}")
+    yield
+    strategy.transition("shell")
+    strategy.shell.run(f"rauc-disable-cert {cert}")
+
+
 def test_rauc_version(shell):
     """
     Test basic availability working of rauc binary by obtaining version
@@ -33,18 +112,6 @@ def test_rauc_status(shell):
     Test basic slot status readout.
     """
     shell.run_check("rauc status", timeout=60)
-
-
-@pytest.fixture(scope="function")
-def rauc_cert_enabled(shell, env: labgrid.Environment):
-    # Bundles during testing are not signed with release keys.
-    # But the development key is not enabled by default.
-    # So we need to enable it first.
-
-    cert = "pengutronix.cert.pem" if "ptx-flavor" in env.get_target_features() else "devel.cert.pem"
-    shell.run_check(f"rauc-enable-cert {cert}")
-    yield
-    shell.run_check(f"rauc-disable-cert {cert}")
 
 
 def test_rauc_info_json(shell, rauc_bundle, check, rauc_cert_enabled):
