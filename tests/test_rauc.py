@@ -1,4 +1,5 @@
 import json
+import logging
 
 import labgrid
 import pytest
@@ -54,6 +55,10 @@ def booted_slot(strategy: LXATACStrategy):
 
         assert "booted" in rauc_status, 'No "booted" key in rauc status JSON found'
 
+        # For debugging-purposes: Output in which slot this code runs in.
+        # This can be removed later on.
+        logging.warning("Bootet slot is %s", rauc_status["booted"])
+
         return rauc_status["booted"]
 
     yield _booted_slot
@@ -90,11 +95,26 @@ def rauc_cert_enabled(strategy: LXATACStrategy, env: labgrid.Environment):
     # But the development key is not enabled by default.
     # So we need to enable it first.
 
+    # For debugging-purposes: Output in which slot this code runs in.
+    # This can be removed later on.
+    def _booted_slot():
+        [stdout] = strategy.shell.run_check("rauc status --output-format=json", timeout=60)
+        rauc_status = json.loads(stdout)
+
+        assert "booted" in rauc_status, 'No "booted" key in rauc status JSON found'
+
+        logging.warning("Bootet slot is %s", rauc_status["booted"])
+        return rauc_status["booted"]
+
     cert = "pengutronix.cert.pem" if "ptx-flavor" in env.get_target_features() else "devel.cert.pem"
     strategy.transition("shell")
+    logging.warning("Enabling CERT in the following slot:")
+    _booted_slot()
     strategy.shell.run_check(f"rauc-enable-cert {cert}")
     yield
     strategy.transition("shell")
+    logging.warning("Disabling CERT in the following slot:")
+    _booted_slot()
     strategy.shell.run(f"rauc-disable-cert {cert}")
 
 
@@ -150,6 +170,11 @@ def test_rauc_install(
     set_bootstate_in_bootloader(20, 1, 10, 1)
     strategy.transition("shell")
     assert booted_slot() == "system0"
+
+    # For Debugging Purposes: Output which certs are currently active
+    logging.warning("Current RAUC cert state is:")
+    for l in strategy.shell.run_check("ls -lah /etc/rauc/certificates-enabled/"):
+        logging.warning("> %s", l.strip())
 
     # Actual installation - may take a few minutes.
     # Thus, let's use a large timeout.
