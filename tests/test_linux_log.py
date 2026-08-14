@@ -41,7 +41,16 @@ def test_kernel_messages(shell):
         "usb usb1-port3: cannot reset (err = -32)",
     }
 
+    allowed_re = [
+        # These messages can happen depending on the order tests and are harmless
+        re.compile(
+            r"^systemd-journald.+File \/var\/log\/journal.+ corrupted or uncleanly shut down, renaming and replacing.$"
+        ),
+    ]
+
     messages = shell.run_check("dmesg -l warn -l err -l crit -l alert -l emerg")
     messages = set(re.sub(r"^\[\s*\d+\.\d+\] ", "", m) for m in messages)
+
+    messages = {m for m in messages if not any(r.match(m) for r in allowed_re)}
 
     assert messages - allowed == expected
