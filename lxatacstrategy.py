@@ -175,6 +175,17 @@ class LXATACStrategy(Strategy):
                 '"/usr/share/tacd/update_channels.deactivated" && systemctl restart tacd.service; fi'
             )
 
+            if self.first_boot:
+                # Devices will be shipped with a certificate configured.
+                # Let's do the same in our testing environment.
+                # (After installation via RAUC the new bundle will activate the matching certificate itself.)
+                cert = (
+                    "pengutronix.cert.pem"
+                    if "ptx-flavor" in self.target.env.get_target_features()
+                    else "devel.cert.pem"
+                )
+                self.shell.run_check(f"rauc-enable-cert {cert}")
+
             self.wait_online()
 
             # Use shorter boot timeout for subsequent boots.
