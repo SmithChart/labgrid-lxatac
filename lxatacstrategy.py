@@ -167,6 +167,14 @@ class LXATACStrategy(Strategy):
 
             self.target.activate(self.shell)
             self.wait_system_ready()
+
+            # Deactivate automatic update installation:
+            # With no update channels configured the tacd will never enable the automatic installation in RAUC.
+            self.shell.run(
+                'if [ -d "/usr/share/tacd/update_channels" ]; then mv "/usr/share/tacd/update_channels" '
+                '"/usr/share/tacd/update_channels.deactivated" && systemctl restart tacd.service; fi'
+            )
+
             self.wait_online()
 
             # Use shorter boot timeout for subsequent boots.
