@@ -123,6 +123,9 @@ class LXATACStrategy(Strategy):
                 # coordinator clean up stale resources.
                 self.shell.run("systemctl stop labgrid-exporter", timeout=90)
 
+                # Sync all pending changes to eMMC before switching off power
+                self.shell.run_check("sync")
+
             self.target.deactivate(self.barebox)
             self.target.deactivate(self.shell)
             self.target.deactivate(self.fastboot)
