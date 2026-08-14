@@ -252,5 +252,6 @@ class LXATACStrategy(Strategy):
             get_info(self.shell, "df --human-readable")
             get_info(self.shell, "free -m")
             get_info(self.shell, "systemctl list-units --failed --no-pager")
+            get_info(self.shell, "rauc status")
 
         return pm_info
