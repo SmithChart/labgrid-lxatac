@@ -1,6 +1,5 @@
 import json
 
-import labgrid
 import pytest
 
 from lxatacstrategy import LXATACStrategy
@@ -84,20 +83,6 @@ def set_bootstate_in_bootloader(strategy: LXATACStrategy, default_bootstate):
     yield _set_bootstate
 
 
-@pytest.fixture(scope="function")
-def rauc_cert_enabled(strategy: LXATACStrategy, env: labgrid.Environment):
-    # Bundles during testing are not signed with release keys.
-    # But the development key is not enabled by default.
-    # So we need to enable it first.
-
-    cert = "pengutronix.cert.pem" if "ptx-flavor" in env.get_target_features() else "devel.cert.pem"
-    strategy.transition("shell")
-    strategy.shell.run_check(f"rauc-enable-cert {cert}")
-    yield
-    strategy.transition("shell")
-    strategy.shell.run(f"rauc-disable-cert {cert}")
-
-
 def test_rauc_version(shell):
     """
     Test basic availability working of rauc binary by obtaining version
@@ -114,7 +99,7 @@ def test_rauc_status(shell):
     shell.run_check("rauc status", timeout=60)
 
 
-def test_rauc_info_json(shell, rauc_bundle, check, rauc_cert_enabled):
+def test_rauc_info_json(shell, rauc_bundle, check):
     """
     Test rauc info output in JSON for a rauc bundle read via http.
     """
@@ -139,9 +124,7 @@ def test_rauc_info_json(shell, rauc_bundle, check, rauc_cert_enabled):
 
 @pytest.mark.slow
 @pytest.mark.dependency()
-def test_rauc_install(
-    strategy, booted_slot, set_bootstate_in_bootloader, rauc_bundle, log_duration, rauc_cert_enabled
-):
+def test_rauc_install(strategy, booted_slot, set_bootstate_in_bootloader, rauc_bundle, log_duration):
     """
     Test if a rauc install from slot0 into slot1 works.
     """

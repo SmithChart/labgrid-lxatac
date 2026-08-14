@@ -123,6 +123,9 @@ class LXATACStrategy(Strategy):
                 # coordinator clean up stale resources.
                 self.shell.run("systemctl stop labgrid-exporter", timeout=90)
 
+                # Sync all pending changes to eMMC before switching off power
+                self.shell.run_check("sync")
+
             self.target.deactivate(self.barebox)
             self.target.deactivate(self.shell)
             self.target.deactivate(self.fastboot)
@@ -167,6 +170,25 @@ class LXATACStrategy(Strategy):
 
             self.target.activate(self.shell)
             self.wait_system_ready()
+
+            # Deactivate automatic update installation:
+            # With no update channels configured the tacd will never enable the automatic installation in RAUC.
+            self.shell.run(
+                'if [ -d "/usr/share/tacd/update_channels" ]; then mv "/usr/share/tacd/update_channels" '
+                '"/usr/share/tacd/update_channels.deactivated" && systemctl restart tacd.service; fi'
+            )
+
+            if self.first_boot:
+                # Devices will be shipped with a certificate configured.
+                # Let's do the same in our testing environment.
+                # (After installation via RAUC the new bundle will activate the matching certificate itself.)
+                cert = (
+                    "pengutronix.cert.pem"
+                    if "ptx-flavor" in self.target.env.get_target_features()
+                    else "devel.cert.pem"
+                )
+                self.shell.run_check(f"rauc-enable-cert {cert}")
+
             self.wait_online()
 
             # Use shorter boot timeout for subsequent boots.
@@ -230,5 +252,6 @@ class LXATACStrategy(Strategy):
             get_info(self.shell, "df --human-readable")
             get_info(self.shell, "free -m")
             get_info(self.shell, "systemctl list-units --failed --no-pager")
+            get_info(self.shell, "rauc status")
 
         return pm_info
